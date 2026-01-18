@@ -7,44 +7,43 @@ jobs:
   setup-rdp:
     runs-on: windows-latest
     steps:
-      - name: Enable Remote Desktop and Firewall
+      - name: Enable Remote Desktop
         shell: powershell
         run: |
-          # Enable RDP service
           Set-ItemProperty -Path 'HKLM:SystemCurrentControlSetControlTerminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          # Optional: Add runneradmin to RDP users if needed
-          net localgroup "Remote Desktop Users" runneradmin /add
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "runneradmin"[web:21]
 
-      - name: Checkout repo (optional)
-        uses: actions/checkout@v4
-
-      - name: Setup cloudflared
-        uses: AnimMouse/setup-cloudflared@v2[web:10]
-
-      - name: Install cloudflared tunnel service
+      - name: Install cloudflared with winget
         shell: powershell
         run: |
-          cloudflared service install eyJhIjoiODhjOGE0NDRkMzhiODgwYTExNGYzZGZlZWVlY2ZmMmMiLCJ0IjoiZGEwMjRlNGQtMTBkZi00Y2I0LWE0MTMtZTA5M2VkZTVkZmEzIiwicyI6Ik16azBOMk01TW1NdE1USTJZaTAwTm1JM0xXSTNaV0l0TUdVMk1UaGpNbVExWXpBNCJ9[web:27]
+          winget import -i https://winstall.app/winget-installer/Cloudflare.cloudflared
+          # Or directly:
+          winget install --id Cloudflare.cloudflared --accept-package-agreements --accept-source-agreements --silent[web:28][web:35]
 
-      - name: Start cloudflared service
+      - name: Install tunnel service
+        shell: powershell
+        run: |
+          cloudflared service install eyJhIjoiODhjOGE0NDRkMzhiODgwYTExNGYzZGZlZWVlY2ZmMmMiLCJ0IjoiZGEwMjRlNGQtMTBkZi00Y2I0LWE0MTMtZTA5M2VkZTVkZmEzIiwicyI6Ik16azBOMk01TW1NdE1USTJZaTAwTm1JM0xXSTNaV0l0TUdVMk1UaGpNbVExWXpBNCJ9[web:30]
+
+      - name: Start service and verify
         shell: powershell
         run: |
           Start-Service Cloudflared
-          Start-Sleep 10
+          Start-Sleep 15
           Get-Service Cloudflared
-          cloudflared tunnel list
+          cloudflared tunnel list[web:34]
 
-      - name: Display tunnel connection info
+      - name: Connection Instructions
         shell: powershell
         run: |
-          Write-Output "Tunnel installed. Configure public hostname in Cloudflare Zero Trust dashboard:"
-          Write-Output "1. Go to https://dash.cloudflare.com -> Zero Trust -> Networks -> Tunnels"
-          Write-Output "2. Find your tunnel (UUID from token)"
-          Write-Output "3. Add Public Hostname: Type=rdp, URL=localhost:3389, Subdomain=your-rdp.example.com"
-          Write-Output "Connect via RDP client to your-rdp.example.com"
-          cloudflared tunnel info
+          Write-Output "Tunnel active. In Cloudflare Zero Trust:"
+          Write-Output "1. Networks > Tunnels > Select your tunnel"
+          Write-Output "2. Public Hostname > Add: Type=rdp, Service=localhost:3389"
+          Write-Output "3. Connect RDP to your-subdomain.yourdomain.com"
+          Write-Output "Username: runneradmin (password may not be set)"
+          cloudflared tunnel info[web:14]
 
-      - name: Keep session alive
+      - name: Keep alive
         timeout-minutes: 360
-        run: Start-Sleep -Seconds ((360*60)-60)
+        run: Start-Sleep -Seconds 1285000
